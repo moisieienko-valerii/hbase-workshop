@@ -25,13 +25,15 @@ public class UserAccountDao {
     }
 
     public boolean save(UserAccount userAccount) {
-        try (Table table = connection.getTable(tableName)) {
+        try (Table table = this.connection.getTable(this.tableName)) {
+
             Put put = new Put(Bytes.toBytes(userAccount.getUserId()));
             Map<String, Double> acc = userAccount.getMoney();
             for (Map.Entry<String, Double> entry : acc.entrySet()) {
                 put.addColumn(ACCOUNTS_FAMILY, Bytes.toBytes(entry.getKey()), Bytes.toBytes((long) (entry.getValue() * PRECISION)));
             }
             put.setDurability(Durability.ASYNC_WAL);
+
             table.put(put);
             return true;
         } catch (Exception e) {
@@ -41,15 +43,18 @@ public class UserAccountDao {
     }
 
     public UserAccount getOne(String userId) {
-        try (Table table = connection.getTable(tableName)) {
+        try (Table table = this.connection.getTable(this.tableName)) {
+
             Get get = new Get(Bytes.toBytes(userId));
             get.addFamily(ACCOUNTS_FAMILY);
             Result res = table.get(get);
+
             if (res != null && !res.isEmpty()) {
                 Map<String, Double> accMap = new HashMap<>();
                 Map<byte[], byte[]> data = res.getFamilyMap(ACCOUNTS_FAMILY);
                 for (Map.Entry<byte[], byte[]> entry : data.entrySet()) {
-                    accMap.put(Bytes.toString(entry.getKey()), Bytes.toLong(entry.getValue()) / PRECISION);
+                    accMap.put(Bytes.toString(entry.getKey()),
+                               Bytes.toLong(entry.getValue()) / PRECISION);
                 }
                 return new UserAccount(userId, accMap);
             }
@@ -60,9 +65,11 @@ public class UserAccountDao {
     }
 
     public boolean delete(String userId) {
-        try (Table table = connection.getTable(tableName)) {
+        try (Table table = this.connection.getTable(this.tableName)) {
+
             Delete delete = new Delete(Bytes.toBytes(userId));
             delete.addFamily(ACCOUNTS_FAMILY);
+
             table.delete(delete);
             return true;
         } catch (Exception e) {
@@ -73,7 +80,8 @@ public class UserAccountDao {
 
     public long count() {
         long count = 0;
-        try (Table table = connection.getTable(tableName)) {
+        try (Table table = this.connection.getTable(this.tableName)) {
+
             try (ResultScanner scanner = table.getScanner(ACCOUNTS_FAMILY)) {
                 for (Result rs = scanner.next(); rs != null; rs = scanner.next()) {
                     count++;
@@ -87,8 +95,13 @@ public class UserAccountDao {
 
     public double addMoney(String userId, String currency, double addMoney) {
         double res = 0;
-        try (Table table = connection.getTable(tableName)) {
-            long tmp = table.incrementColumnValue(Bytes.toBytes(userId), ACCOUNTS_FAMILY, Bytes.toBytes(currency), (long) (addMoney * PRECISION));
+        try (Table table = this.connection.getTable(this.tableName)) {
+
+            long tmp = table.incrementColumnValue(
+                    Bytes.toBytes(userId),
+                    ACCOUNTS_FAMILY, Bytes.toBytes(currency),
+                    (long) (addMoney * PRECISION));
+
             res = tmp / PRECISION;
         } catch (Exception e) {
             e.printStackTrace();
@@ -97,10 +110,10 @@ public class UserAccountDao {
     }
 
     public void dropAll() {
-        try (Admin admin = connection.getAdmin()) {
-            HTableDescriptor descr = admin.getTableDescriptor(tableName);
-            admin.disableTable(tableName);
-            admin.deleteTable(tableName);
+        try (Admin admin = this.connection.getAdmin()) {
+            HTableDescriptor descr = admin.getTableDescriptor(this.tableName);
+            admin.disableTable(this.tableName);
+            admin.deleteTable(this.tableName);
             admin.createTable(descr);
         } catch (Exception e) {
             e.printStackTrace();
